@@ -1,2 +1,2 @@
 # mom
-Multi-Orbital Model
+Multi-Orbital Hubbard Model
