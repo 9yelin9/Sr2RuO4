@@ -47,31 +47,30 @@ with open(datadir+'/{}'.format(flist[fnum]), 'r') as data:
 
 ### Make band structure diagram
 p     = [] 
-o1_up = []
-o1_dn = []
-o2_up = []
-o2_dn = []
-o3_up = []
-o3_dn = []
+a_up = []
+a_dn = []
+b_up = []
+b_dn = []
+c_up = []
+c_dn = []
         
 for i in range(len(df)):
 	p.append(df.values[i][0])
-	o1_up.append(df.values[i][1])
-	o1_dn.append(df.values[i][2])
-	o2_up.append(df.values[i][3])
-	o2_dn.append(df.values[i][4])
-	o3_up.append(df.values[i][5])
-	o3_dn.append(df.values[i][6])
+	a_up.append(df.values[i][1])
+	a_dn.append(df.values[i][2])
+	b_up.append(df.values[i][3])
+	b_dn.append(df.values[i][4])
+	c_up.append(df.values[i][5])
+	c_dn.append(df.values[i][6])
 
-fig  = plt.figure(figsize=[6, 9])
-
-band = fig.add_subplot(2, 1, 1)
-band.plot(p, o1_up, '.', color='lightcoral', label=r'$\alpha\uparrow$')
-band.plot(p, o1_dn, '.', color='tab:red',    label=r'$\alpha\downarrow$')
-band.plot(p, o2_up, '.', color='lightgreen', label=r'$\beta\uparrow$')
-band.plot(p, o2_dn, '.', color='tab:green',  label=r'$\beta\downarrow$')
-band.plot(p, o3_up, '.', color='lightblue',  label=r'$\gamma\uparrow$')
-band.plot(p, o3_dn, '.', color='tab:blue',   label=r'$\gamma\downarrow$')
+fig  = plt.figure()
+band = fig.add_subplot()
+band.plot(p, a_up, '.', ms=2, color = 'lightcoral', label=r'$\alpha\uparrow$') 
+band.plot(p, a_dn, '.', ms=2, color = 'tab:red',    label=r'$\alpha\downarrow$')
+band.plot(p, b_up, '.', ms=2, color = 'lightgreen', label=r'$\beta\uparrow$') 
+band.plot(p, b_dn, '.', ms=2, color = 'tab:green',  label=r'$\beta\downarrow$') 
+band.plot(p, c_up, '.', ms=2, color = 'lightblue',  label=r'$\gamma\uparrow$')  
+band.plot(p, c_dn, '.', ms=2, color = 'tab:blue',   label=r'$\gamma\downarrow$')
 
 band.set_title(title)
 band.set_xlabel('Path')
@@ -79,17 +78,6 @@ band.set_ylabel('Energy')
 band.set_xticks(np.arange(0, len(df)+1, step=float(vv[0])))
 band.set_xticklabels(['$\Gamma$', 'M', 'X', '$\Gamma$'])
 
-dos = fig.add_subplot(2, 1, 2)
-dos.hist(o1_up, bins=100, histtype='step', color='lightcoral', label=r'$\alpha\uparrow$')  
-dos.hist(o1_dn, bins=100, histtype='step', color='tab:red',    label=r'$\alpha\downarrow$')
-dos.hist(o2_up, bins=100, histtype='step', color='lightgreen', label=r'$\beta\uparrow$')   
-dos.hist(o2_dn, bins=100, histtype='step', color='tab:green',  label=r'$\beta\downarrow$') 
-dos.hist(o3_up, bins=100, histtype='step', color='lightblue',  label=r'$\gamma\uparrow$')  
-dos.hist(o3_dn, bins=100, histtype='step', color='tab:blue',   label=r'$\gamma\downarrow$')
-
-dos.set_xlabel('Energy')
-dos.set_ylabel('Density of states')
-
-plt.legend(loc='lower center', ncol=6, fontsize=9, bbox_to_anchor=(0.5, -0.3))
+plt.legend()
 plt.savefig('/home/9yelin9/mom/fm/diagram/{}'.format(args.name))
 plt.show()

@@ -45,50 +45,50 @@ with open(datadir+'/{}'.format(flist[fnum]), 'r') as data:
 	print(df)
 
 ### Make Fermi surface diagram
-o1up_k1 = []
-o1up_k2 = []
-o1dn_k1 = []
-o1dn_k2 = []
+aup_k1 = []
+aup_k2 = []
+adn_k1 = []
+adn_k2 = []
 
-o2up_k1 = []
-o2up_k2 = []
-o2dn_k1 = []
-o2dn_k2 = []
+bup_k1 = []
+bup_k2 = []
+bdn_k1 = []
+bdn_k2 = []
 
-o3up_k1 = []
-o3up_k2 = []
-o3dn_k1 = []
-o3dn_k2 = []
+cup_k1 = []
+cup_k2 = []
+cdn_k1 = []
+cdn_k2 = []
 
 for i in range(len(df)):
 	if(df.values[i][2] != 0):
-		o1up_k1.append(df.values[i][0])
-		o1up_k2.append(df.values[i][1])
+		aup_k1.append(df.values[i][0])
+		aup_k2.append(df.values[i][1])
 	if(df.values[i][3] != 0):
-		o1dn_k1.append(df.values[i][0])
-		o1dn_k2.append(df.values[i][1])
+		adn_k1.append(df.values[i][0])
+		adn_k2.append(df.values[i][1])
 	if(df.values[i][4] != 0):
-		o2up_k1.append(df.values[i][0])
-		o2up_k2.append(df.values[i][1])
+		bup_k1.append(df.values[i][0])
+		bup_k2.append(df.values[i][1])
 	if(df.values[i][5] != 0):
-		o2dn_k1.append(df.values[i][0])
-		o2dn_k2.append(df.values[i][1])
+		bdn_k1.append(df.values[i][0])
+		bdn_k2.append(df.values[i][1])
 	if(df.values[i][6] != 0):
-		o3up_k1.append(df.values[i][0])
-		o3up_k2.append(df.values[i][1])
+		cup_k1.append(df.values[i][0])
+		cup_k2.append(df.values[i][1])
 	if(df.values[i][7] != 0):
-		o3dn_k1.append(df.values[i][0])
-		o3dn_k2.append(df.values[i][1])
+		cdn_k1.append(df.values[i][0])
+		cdn_k2.append(df.values[i][1])
 
 fig  = plt.figure()
 
 surface = fig.add_subplot()
-surface.plot(o1up_k1, o1up_k2, '.', color = 'lightcoral', label=r'$\alpha\uparrow$')
-surface.plot(o1dn_k1, o1dn_k2, '.', color = 'tab:red',    label=r'$\alpha\downarrow$')
-surface.plot(o2up_k1, o2up_k2, '.', color = 'lightgreen', label=r'$\beta\uparrow$')
-surface.plot(o2dn_k1, o2dn_k2, '.', color = 'tab:green',  label=r'$\beta\downarrow$')
-surface.plot(o3up_k1, o3up_k2, '.', color = 'lightblue',  label=r'$\gamma\uparrow$')
-surface.plot(o3dn_k1, o3dn_k2, '.', color = 'tab:blue',   label=r'$\gamma\downarrow$')
+surface.plot(aup_k1, aup_k2, '.', color = 'lightcoral', label=r'$\alpha\uparrow$')
+surface.plot(adn_k1, adn_k2, '.', color = 'tab:red',    label=r'$\alpha\downarrow$')
+surface.plot(bup_k1, bup_k2, '.', color = 'lightgreen', label=r'$\beta\uparrow$')
+surface.plot(bdn_k1, bdn_k2, '.', color = 'tab:green',  label=r'$\beta\downarrow$')
+surface.plot(cup_k1, cup_k2, '.', color = 'lightblue',  label=r'$\gamma\uparrow$')
+surface.plot(cdn_k1, cdn_k2, '.', color = 'tab:blue',   label=r'$\gamma\downarrow$')
 
 surface.set_title(title)
 surface.set_xlabel('Path')
