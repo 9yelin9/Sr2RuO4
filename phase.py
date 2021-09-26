@@ -1,0 +1,56 @@
+# Magnetic Phase Diagram
+
+import os
+import re
+import time
+import argparse
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+t1 = -4.000
+
+t = time.time()
+tm = time.localtime(t)
+runtime = '{}{}{}{}'.format(tm.tm_mon, tm.tm_mday, tm.tm_hour, tm.tm_min)
+
+### Options
+parser = argparse.ArgumentParser()
+parser.add_argument('-k', '--kind', type=str, default='f', choices=['f', 'a'], help='Choose kind of the magnetization\nf : fm, a : afm')
+args = parser.parse_args()
+
+kind = 'fm' if args.kind == 'f' else 'afm'
+
+### Choose file
+datadir = '/home/9yelin9/mom/{}/data'.format(kind)
+
+ulist = []
+nlist = []
+
+inlist = os.listdir(datadir)
+inlist.sort()
+for innum in range(len(inlist)):
+
+	outlist = os.listdir(datadir+'/'+inlist[innum])
+	outlist = [o for o in outlist if o.find('.txt') == -1]
+	for outnum in range(len(outlist)):
+
+		m  = re.findall('m[-]?[0-9]+[.]+[0-9]+', outlist[outnum])
+		if abs(float(m[0].replace('m', ''))) > 0 :
+			u = re.findall('U[0-9]+[.]+[0-9]+', inlist[innum])
+			n = re.findall('n[0-9]+[.]+[0-9]+', outlist[outnum])
+
+			ulist.append(-float(u[0].replace('U', ''))/t1)
+			nlist.append(float(n[0].replace('n', '')))
+
+fig = plt.figure()
+plt.plot(nlist, ulist, '.', label='{}'.format(kind.upper()))
+
+plt.title('Magnetic Phase Diagram ({}/PM)'.format(kind.upper()))
+plt.xlabel('n')
+plt.ylabel('-U/t1')
+plt.yticks(np.arange(0, 6.26, step=1.25))
+
+plt.legend()
+plt.savefig('/home/9yelin9/mom/diagram/mpd{}_{}.png'.format(kind, runtime))
+plt.show()
