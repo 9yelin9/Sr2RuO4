@@ -1,4 +1,4 @@
-// Multi-Orbital Hubbard Model - SRO Model(FM)
+// Sr4RuO2 Model - FM
 
 #define N    6
 #define OBT  3
@@ -22,8 +22,8 @@ lapack_int lwork = -1;
 const int ks = 128;
 const double t1 = -4.000;
 const double dt =  0.000;
-char *dirname;
-char *subdirname;
+char *input;
+char *output;
 char *runtime;
 
 struct Model {
@@ -36,6 +36,7 @@ struct Model {
 	double ntot;
 	double mtot;
 	double etot;
+	double c;
 	double mu;
 	double itr;
 };	
@@ -59,7 +60,7 @@ void OptCalcEigen() { // Optimize CalcEigen
 void BuildH(int uord, Model *md, double k1, double k2, lapack_complex_double *h) { // Build Hamiltonian matrix
 	double t2, t3, t4, ld0, *e;
 	double n_sum, m_sum;
-	double c1, c2, c3;
+	double a1, a2, a3;
 
 	t2  = 0.375*t1;
 	t3  = 1.250*t1;
@@ -70,15 +71,15 @@ void BuildH(int uord, Model *md, double k1, double k2, lapack_complex_double *h)
 	e[0] = (2*t1*(cos(k1)+cos(k2)) + 4*t2*cos(k1)*cos(k2));
 	e[1] = (dt + 2*t3*cos(k2) + 2*t4*cos(k1));
 	e[2] = (dt + 2*t3*cos(k1) + 2*t4*cos(k2));
-	c3   = (4*ld0*sin(k1)*sin(k2));
+	a3   = (4*ld0*sin(k1)*sin(k2));
 
 	//	   <Hamiltonian matrix>
 	//   	xy		yz		zx
-	// xy  	c1+c2	0		0
-	// yz	0	    c1+c2	c3		+ c0
-	// zx	0	    c3		c1+c2
+	// xy  	a1+a2	0		0
+	// yz	0	    a1+a2	a3		+ c
+	// zx	0	    a3		a1+a2
 
-	// c1, c2
+	// a1, a2
 	for(int i=0; i<OBT; i++) {
 		n_sum = 0;
 		m_sum = 0;
@@ -90,13 +91,13 @@ void BuildH(int uord, Model *md, double k1, double k2, lapack_complex_double *h)
 			}
 		}
 
-		c1 = e[i] + md->U*md->n[i] + (2*md->U-5*md->J)*n_sum;
-		c2 = -((double)uord/2) * (md->U*md->m[i] + md->J*m_sum); // uord : up = 1, dn = -1 
-		h[i*4] = c1 + c2;
+		a1 = e[i] + md->U*md->n[i] + (2*md->U-5*md->J)*n_sum;
+		a2 = -((double)uord/2) * (md->U*md->m[i] + md->J*m_sum); // uord : up = 1, dn = -1 
+		h[i*4] = a1 + a2;
 	}
 
-	// c3
-	h[5] = h[7] = c3;
+	// a3
+	h[5] = h[7] = a3;
 
 	free(e);
 }
@@ -158,7 +159,7 @@ void PrintBand(Model *md) { // Print band structure data
 	double k1, k2;
 	double *o = (double*)malloc(sizeof(double) * 2*OBT);
 
-	sprintf(buf, "%s/band.txt", subdirname);
+	sprintf(buf, "%s/band.txt", output);
 	if((fp = fopen(buf, "w")) == NULL) {
 		printf("band fopen ERROR\n");
 		exit(1);
@@ -221,7 +222,7 @@ void PrintSurface(Model *md) { // Print Fermi surface data
 	double k1, k2;
 	double *o = (double*)malloc(sizeof(double) * 2*OBT);
 
-	sprintf(buf, "%s/surface.txt", subdirname);
+	sprintf(buf, "%s/surface.txt", output);
 	if((fp = fopen(buf, "w")) == NULL) {
 		printf("surface fopen ERROR\n");
 		exit(1);
@@ -250,36 +251,6 @@ void PrintSurface(Model *md) { // Print Fermi surface data
 	}
 	
 	free(o);
-	fclose(fp);
-}
-
-void PrintPhase(Model *md) { // Print magnetic phase data
-	FILE *fp;
-	char buf[2048];
-	double c0, n2_sum = 0, m2_sum = 0, nn_sum = 0, mm_sum = 0;
-
-	sprintf(buf, "%s/phase.txt", subdirname);
-	if((fp = fopen(buf, "w")) == NULL) {
-		printf("phase fopen ERROR\n");
-		exit(1);
-	}
-
-	// c0
-	for(int i=0; i<OBT; i++) {
-		n2_sum += md->n[i]*md->n[i];
-		m2_sum += md->m[i]*md->m[i];
-
-		for(int j=0; j<OBT; j++) {
-			if(j != i) {
-				nn_sum += md->n[j]*md->n[i];
-				mm_sum += md->m[j]*md->m[i];
-			}
-		}
-	}
-	c0 = -N*md->U*(n2_sum-m2_sum/4) - 2*N*(md->U-2*md->J)*nn_sum + N*md->J*(nn_sum+mm_sum/4);
-
-	fprintf(fp, "#-U/t1\tmtot\tetot\tc0\n%f\t%f\t%f\t%f\n", -md->U/t1, md->mtot, md->etot, c0);
-
 	fclose(fp);
 }
 
@@ -323,7 +294,7 @@ void FindM(Model *md) { // Find m converged
 	double n[OBT], m[OBT], e[OBT], itv;
 	double m_cvg[3] = {-100, -100, -100};
 
-	sprintf(buf, "%s/%s.txt", dirname, runtime);
+	sprintf(buf, "%s/%s.txt", input, runtime);
 	if((fp = fopen(buf, "w")) == NULL) {
 		printf("fopen ERROR\n");
 		exit(1);
@@ -335,14 +306,15 @@ void FindM(Model *md) { // Find m converged
 		md->n[i] = md->n0/3;
 		md->m[i] = md->n0/12;
 	}
+	md->mu = -20;
 
 	printf("#%7s%16s%16s%16s%16s\n", "itr", "mu", "ntot", "mtot", "etot");
 	fprintf(fp, "#%7s%16s%16s%16s%16s\n", "itr", "mu", "ntot", "mtot", "etot");
 	for(itr=1; itr<100; itr++) {
 		itv = 1;
-		md->mu = 0;
+		md->mu -= 5;
 
-		while(itv > 1e-6) {
+		while(itv > 1e-8) {
 			md->ntot = 0;
 			md->mtot = 0;
 			md->etot = 0;
@@ -354,7 +326,7 @@ void FindM(Model *md) { // Find m converged
 				md->etot += e[j];
 			}
 			//printf("%f\t%f\t%f\t%f\t%f\n", md->mu, md->ntot, m[0], m[1], m[2]);
-			if(fabs(md->ntot-md->n0) < 1e-3) break;
+			if(fabs(md->ntot-md->n0) < 1e-4) break;
 
 			if(md->ntot > md->n0-itv) {
 				md->mu -= itv;
@@ -379,9 +351,27 @@ void FindM(Model *md) { // Find m converged
 	fclose(fp);
 }
 
+void CalcC(Model *md) { // Calculate C
+	double n2_sum = 0, m2_sum = 0, nn_sum = 0, mm_sum = 0;
+
+	for(int i=0; i<OBT; i++) {
+		n2_sum += md->n[i]*md->n[i];
+		m2_sum += md->m[i]*md->m[i];
+
+		for(int j=0; j<OBT; j++) {
+			if(j != i) {
+				nn_sum += md->n[j]*md->n[i];
+				mm_sum += md->m[j]*md->m[i];
+			}
+		}
+	}
+
+	md->c = -N*md->U*(n2_sum-m2_sum/4) - 2*N*(md->U-2*md->J)*nn_sum + N*md->J*(nn_sum+mm_sum/4);
+}
+
 int main(int argc, char *argv[]) {
 	if(argc != 4) {
-		printf("Usage : %s <n_value> <U_value> <J/U_ratio>\n", argv[0]);
+		printf("Usage : %s <n_value> <U_value> <J/U_value>\n", argv[0]);
 		exit(1);
 	}
 
@@ -390,33 +380,31 @@ int main(int argc, char *argv[]) {
 	md.U  = atof(argv[2]);
 	md.J  = atof(argv[2]) * atof(argv[3]);
 
-	dirname = (char*)malloc(sizeof(char) * 1024);
-	sprintf(dirname, "/home/9yelin9/mom/fm/data/n%.1fU%.1fJ%.3fk%.1f", md.n0, md.U, md.J, (double)ks);
-	mkdir(dirname, 0777);
+	input = (char*)malloc(sizeof(char) * 1024);
+	sprintf(input, "/home/9yelin9/mom/fm/data/n%.1fU%.1fJ%.3fk%.1f", md.n0, md.U, md.J, (double)ks);
+	mkdir(input, 0777);
 
 	time_t t = time(NULL);
 	struct tm tm = *localtime(&t);
 	runtime = (char*)malloc(sizeof(char) * 1024);
 	sprintf(runtime, "%d%d%d%d", tm.tm_mon+1, tm.tm_mday, tm.tm_hour, tm.tm_min);
 
-	//////////////////
 	OptCalcEigen();
 	FindM(&md);
-	//////////////////
+	CalcC(&md);
 
-	subdirname = (char*)malloc(sizeof(char) * 1024);
-	sprintf(subdirname, "%s/n%fm%fmu%fitr%.1f_%s", dirname, md.ntot, md.mtot, md.mu, md.itr, runtime);
-	mkdir(subdirname, 0777);
+	output = (char*)malloc(sizeof(char) * 1024);
+	sprintf(output, "%s/n%fm%fe%fc%fmu%fitr%.1f_%s", input, md.ntot, md.mtot, md.etot, md.c, md.mu, md.itr, runtime);
+	mkdir(output, 0777);
 
-	//////////////////
 	PrintBand(&md);
 	PrintSurface(&md);
-	PrintPhase(&md);
-	//////////////////
 
-	free(dirname);
-	free(subdirname);
+	free(input);
+	free(output);
 	free(runtime);
+
+	printf("\n");
 
 	return 0;
 }

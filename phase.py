@@ -33,12 +33,16 @@ for innum in range(len(inlist)):
 
 	outlist = os.listdir(datadir+'/'+inlist[innum])
 	outlist = [o for o in outlist if o.find('.txt') == -1]
-	for outnum in range(len(outlist)):
 
-		m  = re.findall('m[-]?[0-9]+[.]+[0-9]+', outlist[outnum])
-		if abs(float(m[0].replace('m', ''))) > 0 :
-			u = re.findall('U[0-9]+[.]+[0-9]+', inlist[innum])
-			n = re.findall('n[0-9]+[.]+[0-9]+', outlist[outnum])
+	if not outlist: continue
+	else :
+		outlist.sort(key=lambda x : x.split('_')[1], reverse=True)
+		outfile = inlist[innum]+'/'+outlist[0]
+
+		m  = re.findall('m[-]?[0-9]+[.]+[0-9]+', outfile)
+		if abs(float(m[0].replace('m', ''))) > 0.001 :
+			u = re.findall('U[0-9]+[.]+[0-9]+', outfile)
+			n = re.findall('n[0-9]+[.]+[0-9]+', outfile)
 
 			ulist.append(-float(u[0].replace('U', ''))/t1)
 			nlist.append(float(n[0].replace('n', '')))
@@ -49,7 +53,7 @@ plt.plot(nlist, ulist, '.', label='{}'.format(kind.upper()))
 plt.title('Magnetic Phase Diagram ({}/PM)'.format(kind.upper()))
 plt.xlabel('n')
 plt.ylabel('-U/t1')
-plt.yticks(np.arange(0, 6.26, step=1.25))
+plt.yticks(np.arange(0, 5.1, step=1.25))
 
 plt.legend()
 plt.savefig('/home/9yelin9/mom/diagram/mpd{}_{}.png'.format(kind, runtime))

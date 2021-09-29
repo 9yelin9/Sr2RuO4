@@ -103,8 +103,8 @@ def band():
 	plt.ylabel('Energy')
 	plt.xticks(np.arange(0, len(df)+1, step=float(pdic['k'])), labels=['$\Gamma$', 'M', 'X', '$\Gamma$'])
 
-	plt.savefig('/home/9yelin9/mom/diagram/{}band_{}.png'.format(fname, runtime))
 	plt.legend()
+	plt.savefig('/home/9yelin9/mom/diagram/{}band_{}.png'.format(fname, runtime))
 	plt.show()
 
 def dos():
@@ -139,8 +139,8 @@ def dos():
 	plt.xlabel('Energy')
 	plt.ylabel('DOS')
 
-	plt.savefig('/home/9yelin9/mom/diagram/{}dos_{}.png'.format(fname, runtime))
 	plt.legend()
+	plt.savefig('/home/9yelin9/mom/diagram/{}dos_{}.png'.format(fname, runtime))
 	plt.show()
 
 def surface():
