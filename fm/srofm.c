@@ -30,9 +30,9 @@ struct Model {
 	double n0;
 	double U;
 	double J;
-	double n[OBT];
-	double m[OBT];
-	double e[OBT];
+	double n[LN];
+	double m[LN];
+	double e[LN];
 	double ntot;
 	double mtot;
 	double etot;
@@ -41,21 +41,6 @@ struct Model {
 	double itr;
 };	
 typedef struct Model Model;
-
-void OptCalcEigen() { // Optimize CalcEigen
-	lapack_int ln = LN, lda = LDA, ldvl = LDVL, ldvr = LDVR, info;
-	lapack_complex_double a[LDA*LN] = {0, }, w[LN], vl[LDVL*LN], vr[LDVR*LN], work;
-	char jobvl = 'N', jobvr = 'V';
-	double rwork[2*LN];
-
-	LAPACK_zgeev(&jobvl, &jobvr, &ln, a, &lda, w, vl, &ldvl, vr, &ldvr, &work, &lwork, rwork, &info);
-	if(info != 0){
-		printf("OptCalEigen FAIL\n");
-		exit(1);
-	}
-
-	lwork = sizeof(work);
-}
 
 void BuildH(int uord, Model *md, double k1, double k2, lapack_complex_double *h) { // Build Hamiltonian matrix
 	double t2, t3, t4, ld0, *e;
@@ -67,13 +52,13 @@ void BuildH(int uord, Model *md, double k1, double k2, lapack_complex_double *h)
 	t4  = 0.125*t1;
 	ld0 = 0.200*t1;
 
-	e    = (double*)malloc(sizeof(double) * OBT);
+	e    = (double*)malloc(sizeof(double) * LN);
 	e[0] = (2*t1*(cos(k1)+cos(k2)) + 4*t2*cos(k1)*cos(k2));
 	e[1] = (dt + 2*t3*cos(k2) + 2*t4*cos(k1));
 	e[2] = (dt + 2*t3*cos(k1) + 2*t4*cos(k2));
 	a3   = (4*ld0*sin(k1)*sin(k2));
 
-	//	   <Hamiltonian matrix>
+	// <Hamiltonian matrix>
 	//   	xy		yz		zx
 	// xy  	a1+a2	0		0
 	// yz	0	    a1+a2	a3		+ c
@@ -102,6 +87,21 @@ void BuildH(int uord, Model *md, double k1, double k2, lapack_complex_double *h)
 	free(e);
 }
 
+void OptCalcEigen() { // Optimize CalcEigen
+	lapack_int ln = LN, lda = LDA, ldvl = LDVL, ldvr = LDVR, info;
+	lapack_complex_double h[LDA*LN] = {0, }, w[LN], vl[LDVL*LN], vr[LDVR*LN], work;
+	char jobvl = 'N', jobvr = 'V';
+	double rwork[2*LN];
+
+	LAPACK_zgeev(&jobvl, &jobvr, &ln, h, &lda, w, vl, &ldvl, vr, &ldvr, &work, &lwork, rwork, &info);
+	if(info != 0){
+		printf("OptCalEigen FAIL\n");
+		exit(1);
+	}
+
+	lwork = sizeof(work);
+}
+
 void CalcEigen(int uord, Model *md, double k1, double k2, lapack_complex_double *w, lapack_complex_double *vr) { // Calculate Eigenproblem (Using LAPACK_zgeev)
 	lapack_int ln = LN, lda = LDA, ldvl = LDVL, ldvr = LDVR, info;
 	lapack_complex_double h[LDA*LN] = {0, }, w0[LN], vr0[LDVR*LN], vl[LDVL*LN], *work;
@@ -122,10 +122,10 @@ void CalcEigen(int uord, Model *md, double k1, double k2, lapack_complex_double 
 	// Sorting
 	int idx[2], x = 0;
 
-	for(int i=0; i<OBT; i++) {
-		if((pow(creal(vr0[OBT*i+1]), 2)+pow(cimag(vr0[OBT*i+1]), 2)) + (pow(creal(vr0[OBT*i+2]), 2)+pow(cimag(vr0[OBT*i+2]), 2)) < 1e-6) {
+	for(int i=0; i<LN; i++) {
+		if((pow(creal(vr0[LN*i+1]), 2)+pow(cimag(vr0[LN*i+1]), 2)) + (pow(creal(vr0[LN*i+2]), 2)+pow(cimag(vr0[LN*i+2]), 2)) < 1e-6) {
 			w[2] = w0[i];
-			for(int j=0; j<OBT; j++) vr[OBT*2+j] = vr0[OBT*i+j];
+			for(int j=0; j<LN; j++) vr[LN*2+j] = vr0[LN*i+j];
 		}
 		else {
 			idx[x] = i;
@@ -136,17 +136,17 @@ void CalcEigen(int uord, Model *md, double k1, double k2, lapack_complex_double 
 	if(creal(w0[idx[0]]) < creal(w0[idx[1]])) {
 		w[0] = w0[idx[0]];
 		w[1] = w0[idx[1]];
-		for(int i=0; i<OBT; i++) {
-			vr[OBT*0+i] = vr0[OBT*idx[0]+i];
-			vr[OBT*1+i] = vr0[OBT*idx[1]+i];
+		for(int i=0; i<LN; i++) {
+			vr[LN*0+i] = vr0[LN*idx[0]+i];
+			vr[LN*1+i] = vr0[LN*idx[1]+i];
 		}
 	}
 	else {
 		w[0] = w0[idx[1]];
 		w[1] = w0[idx[0]];
-		for(int i=0; i<OBT; i++) {
-			vr[OBT*0+i] = vr0[OBT*idx[1]+i];
-			vr[OBT*1+i] = vr0[OBT*idx[0]+i];
+		for(int i=0; i<LN; i++) {
+			vr[LN*0+i] = vr0[LN*idx[1]+i];
+			vr[LN*1+i] = vr0[LN*idx[0]+i];
 		}
 	}
 }
@@ -157,7 +157,7 @@ void PrintBand(Model *md) { // Print band structure data
 	char buf[2048];
 	int p = 0;
 	double k1, k2;
-	double *o = (double*)malloc(sizeof(double) * 2*OBT);
+	double *o = (double*)malloc(sizeof(double) * 2*LN);
 
 	sprintf(buf, "%s/band.txt", output);
 	if((fp = fopen(buf, "w")) == NULL) {
@@ -171,12 +171,12 @@ void PrintBand(Model *md) { // Print band structure data
 		k2 = 0;
 
 		CalcEigen( 1, md, k1, k2, w, vr);
-		for(int j=0; j<OBT; j++) o[2*j] = creal(w[j]);
+		for(int j=0; j<LN; j++) o[2*j] = creal(w[j]);
 		CalcEigen(-1, md, k1, k2, w, vr);
-		for(int j=0; j<OBT; j++) o[2*j+1] = creal(w[j]);
+		for(int j=0; j<LN; j++) o[2*j+1] = creal(w[j]);
 		
 		fprintf(fp, "%d\t", p);
-		for(int j=0; j<2*OBT; j++) fprintf(fp, "%f\t", o[j]);
+		for(int j=0; j<2*LN; j++) fprintf(fp, "%f\t", o[j]);
 		fprintf(fp, "\n");
 		p++;
 	}
@@ -186,12 +186,12 @@ void PrintBand(Model *md) { // Print band structure data
 		k2 = M_PI*i/(double)ks;
 
 		CalcEigen( 1, md, k1, k2, w, vr);
-		for(int j=0; j<OBT; j++) o[2*j] = creal(w[j]);
+		for(int j=0; j<LN; j++) o[2*j] = creal(w[j]);
 		CalcEigen(-1, md, k1, k2, w, vr);
-		for(int j=0; j<OBT; j++) o[2*j+1] = creal(w[j]);
+		for(int j=0; j<LN; j++) o[2*j+1] = creal(w[j]);
 		
 		fprintf(fp, "%d\t", p);
-		for(int j=0; j<2*OBT; j++) fprintf(fp, "%f\t", o[j]);
+		for(int j=0; j<2*LN; j++) fprintf(fp, "%f\t", o[j]);
 		fprintf(fp, "\n");
 		p++;
 	}
@@ -201,12 +201,12 @@ void PrintBand(Model *md) { // Print band structure data
 		k2 = M_PI + M_PI*i/(double)ks;
 
 		CalcEigen( 1, md, k1, k2, w, vr);
-		for(int j=0; j<OBT; j++) o[2*j] = creal(w[j]);
+		for(int j=0; j<LN; j++) o[2*j] = creal(w[j]);
 		CalcEigen(-1, md, k1, k2, w, vr);
-		for(int j=0; j<OBT; j++) o[2*j+1] = creal(w[j]);
+		for(int j=0; j<LN; j++) o[2*j+1] = creal(w[j]);
 		
 		fprintf(fp, "%d\t", p);
-		for(int j=0; j<2*OBT; j++) fprintf(fp, "%f\t", o[j]);
+		for(int j=0; j<2*LN; j++) fprintf(fp, "%f\t", o[j]);
 		fprintf(fp, "\n");
 		p++;
 	}
@@ -220,7 +220,7 @@ void PrintSurface(Model *md) { // Print Fermi surface data
 	FILE *fp;
 	char buf[2048];
 	double k1, k2;
-	double *o = (double*)malloc(sizeof(double) * 2*OBT);
+	double *o = (double*)malloc(sizeof(double) * 2*LN);
 
 	sprintf(buf, "%s/surface.txt", output);
 	if((fp = fopen(buf, "w")) == NULL) {
@@ -234,19 +234,19 @@ void PrintSurface(Model *md) { // Print Fermi surface data
 		k2 = -M_PI + 2*M_PI*(i%ks)/(double)ks;
 
 		CalcEigen( 1, md, k1, k2, w, vr);
-		for(int j=0; j<OBT; j++) {
+		for(int j=0; j<LN; j++) {
 			if(creal(w[j]) < md->mu && creal(w[j]) > md->mu - 0.5) o[2*j] = 1;
 			else o[2*j] = 0;
 		}
 
 		CalcEigen(-1, md, k1, k2, w, vr);
-		for(int j=0; j<OBT; j++) {
+		for(int j=0; j<LN; j++) {
 			if(creal(w[j]) < md->mu && creal(w[j]) > md->mu - 0.5) o[2*j+1] = 1; 
 			else o[2*j+1] = 0;
 		}
 
 		fprintf(fp, "%f\t%f\t", k1, k2);
-		for(int j=0; j<2*OBT; j++) fprintf(fp, "%f\t", o[j]);
+		for(int j=0; j<2*LN; j++) fprintf(fp, "%f\t", o[j]);
 		fprintf(fp, "\n");
 	}
 	
@@ -257,30 +257,30 @@ void PrintSurface(Model *md) { // Print Fermi surface data
 void CalcNME(Model *md, double *n, double *m, double *e) { // Calculate n, m, energy
 	lapack_complex_double w[LN], vr[LDVR*LN];
 	double k1, k2;
-	double nup_sum[OBT] = {0, }, ndn_sum[OBT] = {0, }, eup_sum[OBT] = {0, }, edn_sum[OBT] = {0, };
+	double nup_sum[LN] = {0, }, ndn_sum[LN] = {0, }, eup_sum[LN] = {0, }, edn_sum[LN] = {0, };
 
 	for(int i=0; i<ks*ks; i++) {
 		k1 = -M_PI + 2*M_PI*(i/ks)/(double)ks;
 		k2 = -M_PI + 2*M_PI*(i%ks)/(double)ks;
 
 		CalcEigen( 1, md, k1, k2, w, vr);
-		for(int j=0; j<LDA*LN; j++) {
-			if(creal(w[j/OBT]) < md->mu) {
-				nup_sum[j%OBT] += (pow(creal(vr[j]), 2) + pow(cimag(vr[j]), 2));
-				eup_sum[j%OBT] += (pow(creal(vr[j]), 2) + pow(cimag(vr[j]), 2)) * creal(w[j/OBT]);
+		for(int j=0; j<LDVR*LN; j++) {
+			if(creal(w[j/LN]) < md->mu) {
+				nup_sum[j%LN] += (pow(creal(vr[j]), 2) + pow(cimag(vr[j]), 2));
+				eup_sum[j%LN] += (pow(creal(vr[j]), 2) + pow(cimag(vr[j]), 2)) * creal(w[j/LN]);
 			}
 		}
 
 		CalcEigen(-1, md, k1, k2, w, vr);
-		for(int j=0; j<LDA*LN; j++) {
-			if(creal(w[j/OBT]) < md->mu) {
-				ndn_sum[j%OBT] += (pow(creal(vr[j]), 2) + pow(cimag(vr[j]), 2));
-				edn_sum[j%OBT] += (pow(creal(vr[j]), 2) + pow(cimag(vr[j]), 2)) * creal(w[j/OBT]);
+		for(int j=0; j<LDVR*LN; j++) {
+			if(creal(w[j/LN]) < md->mu) {
+				ndn_sum[j%LN] += (pow(creal(vr[j]), 2) + pow(cimag(vr[j]), 2));
+				edn_sum[j%LN] += (pow(creal(vr[j]), 2) + pow(cimag(vr[j]), 2)) * creal(w[j/LN]);
 			}
 		}
 	}
 
-	for(int i=0; i<OBT; i++) {
+	for(int i=0; i<LN; i++) {
 		n[i] = (nup_sum[i] + ndn_sum[i])/(ks*ks);
 		m[i] = (nup_sum[i] - ndn_sum[i])/(ks*ks*2);
 		e[i] = (eup_sum[i] + edn_sum[i])/(ks*ks);
@@ -325,7 +325,6 @@ void FindM(Model *md) { // Find m converged
 				md->mtot += m[j];
 				md->etot += e[j];
 			}
-			//printf("%f\t%f\t%f\t%f\t%f\n", md->mu, md->ntot, m[0], m[1], m[2]);
 			if(fabs(md->ntot-md->n0) < 1e-4) break;
 
 			if(md->ntot > md->n0-itv) {
