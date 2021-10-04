@@ -1,2 +1,2 @@
-# mom
-Multi-Orbital Hubbard Model
+# sro
+Sr4Ru02 Model
