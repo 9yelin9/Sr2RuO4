@@ -8,12 +8,11 @@ t0=$(date +%s.%N)
 t0_string=$(date)
 
 joveru=0.25
+ustart=5
+ustop=21
 for n in `seq 1.1 0.1 2.0`
 do
-    for u in `seq 5 20`
-    do
-        ./srofm $n $u $joveru
-    done
+    ./srofm $n $joveru $ustart $ustop
 done
 
 t1=$(date +%s.%N)

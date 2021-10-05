@@ -1,2 +1,2 @@
 # sro
-Sr4Ru02 Model
+Sr4RuO2 Model

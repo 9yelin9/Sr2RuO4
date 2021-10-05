@@ -22,17 +22,18 @@ lapack_int lwork = -1;
 const int ks = 128;
 const double t1 = -4.000;
 const double dt =  0.000;
+double n0;
+double JoverU;
+double U;
+double J;
 char *input;
 char *output;
 char *runtime;
 
 struct Model {
-	double n0;
-	double U;
-	double J;
-	double n[LN];
-	double m[LN];
-	double e[LN];
+	double n[OBT];
+	double m[OBT];
+	double e[OBT];
 	double ntot;
 	double mtot;
 	double etot;
@@ -52,7 +53,7 @@ void BuildH(int uord, Model *md, double k1, double k2, lapack_complex_double *h)
 	t4  = 0.125*t1;
 	ld0 = 0.200*t1;
 
-	e    = (double*)malloc(sizeof(double) * LN);
+	e    = (double*)malloc(sizeof(double) * OBT);
 	e[0] = (2*t1*(cos(k1)+cos(k2)) + 4*t2*cos(k1)*cos(k2));
 	e[1] = (dt + 2*t3*cos(k2) + 2*t4*cos(k1));
 	e[2] = (dt + 2*t3*cos(k1) + 2*t4*cos(k2));
@@ -78,7 +79,7 @@ void BuildH(int uord, Model *md, double k1, double k2, lapack_complex_double *h)
 			}
 		}
 
-		a1 = e[i] + md->U*md->n[i] + (2*md->U-5*md->J)*n_sum;
+		a1 = e[i] + U*md->n[i] + (2*U-5*J)*n_sum;
 		h[i*7] = a1;
 	}
 
@@ -95,7 +96,7 @@ void BuildH(int uord, Model *md, double k1, double k2, lapack_complex_double *h)
 			}
 		}
 
-		a1 = e[i] + md->U*md->n[i] + (2*md->U-5*md->J)*n_sum;
+		a1 = e[i] + U*md->n[i] + (2*U-5*J)*n_sum;
 		h[21+i*7] = a1;
 	}
 
@@ -110,20 +111,12 @@ void BuildH(int uord, Model *md, double k1, double k2, lapack_complex_double *h)
 			}
 		}
 
-		a2 = -((double)uord/2) * (md->U*md->m[i] + md->J*m_sum); // uord : up = 1, dn = -1 
+		a2 = -((double)uord/2) * (U*md->m[i] + J*m_sum); // uord : up = 1, dn = -1 
 		h[3+i*7]  = a2;
 		h[18+i*7] = a2;
 	}
 
 	h[8] = h[13] = h[29] = h[34] = a3;
-
-	/*
-	for(int i=0; i<LDA*LN; i++) {
-		if(i%LN == 0) printf("\n");
-		printf("%f\t", creal(h[i]));
-	}
-	printf("\n");
-	*/
 
 	free(e);
 }
@@ -162,39 +155,6 @@ void CalcEigen(int uord, Model *md, double k1, double k2, lapack_complex_double 
 
 	for(int i=0; i<LN; i++) w[i] = w0[i];
 	for(int i=0; i<LDVR*LN; i++) vr[i] = vr0[i];
-
-	/*
-	// Sorting
-	int idx[2], x = 0;
-
-	for(int i=0; i<LN; i++) {
-		if((pow(creal(vr0[LN*i+1]), 2)+pow(cimag(vr0[LN*i+1]), 2)) + (pow(creal(vr0[LN*i+2]), 2)+pow(cimag(vr0[LN*i+2]), 2)) < 1e-6) {
-			w[2] = w0[i];
-			for(int j=0; j<LN; j++) vr[LN*2+j] = vr0[LN*i+j];
-		}
-		else {
-			idx[x] = i;
-			x++;
-		}
-	}
-
-	if(creal(w0[idx[0]]) < creal(w0[idx[1]])) {
-		w[0] = w0[idx[0]];
-		w[1] = w0[idx[1]];
-		for(int i=0; i<LN; i++) {
-			vr[LN*0+i] = vr0[LN*idx[0]+i];
-			vr[LN*1+i] = vr0[LN*idx[1]+i];
-		}
-	}
-	else {
-		w[0] = w0[idx[1]];
-		w[1] = w0[idx[0]];
-		for(int i=0; i<LN; i++) {
-			vr[LN*0+i] = vr0[LN*idx[1]+i];
-			vr[LN*1+i] = vr0[LN*idx[0]+i];
-		}
-	}
-	*/
 }
 
 void PrintBand(Model *md) { // Print band structure data
@@ -211,7 +171,7 @@ void PrintBand(Model *md) { // Print band structure data
 		exit(1);
 	}
 
-	fprintf(fp, "#p\ta_up\ta_dn\tb_up\tb_dn\tc_up\tc_dn\tNaN\n");
+	fprintf(fp, "#p\tk1_up\tk1_dn\tk2_up\tk2_dn\tk3_up\tk3_dn\tkq1_up\tkq1_dn\tkq2_up\tkq2_dn\tkq3_up\tkq3_dn\tNaN\n");
 	for(int i=0; i<ks; i++) { // r(0, 0) ~ M(pi, 0)
 		k1 = M_PI*i/(double)ks;
 		k2 = 0;
@@ -220,7 +180,7 @@ void PrintBand(Model *md) { // Print band structure data
 		for(int j=0; j<LN; j++) o[2*j] = creal(w[j]);
 		CalcEigen(-1, md, k1, k2, w, vr);
 		for(int j=0; j<LN; j++) o[2*j+1] = creal(w[j]);
-		
+
 		fprintf(fp, "%d\t", p);
 		for(int j=0; j<2*LN; j++) fprintf(fp, "%f\t", o[j]);
 		fprintf(fp, "\n");
@@ -235,7 +195,7 @@ void PrintBand(Model *md) { // Print band structure data
 		for(int j=0; j<LN; j++) o[2*j] = creal(w[j]);
 		CalcEigen(-1, md, k1, k2, w, vr);
 		for(int j=0; j<LN; j++) o[2*j+1] = creal(w[j]);
-		
+
 		fprintf(fp, "%d\t", p);
 		for(int j=0; j<2*LN; j++) fprintf(fp, "%f\t", o[j]);
 		fprintf(fp, "\n");
@@ -250,7 +210,7 @@ void PrintBand(Model *md) { // Print band structure data
 		for(int j=0; j<LN; j++) o[2*j] = creal(w[j]);
 		CalcEigen(-1, md, k1, k2, w, vr);
 		for(int j=0; j<LN; j++) o[2*j+1] = creal(w[j]);
-		
+
 		fprintf(fp, "%d\t", p);
 		for(int j=0; j<2*LN; j++) fprintf(fp, "%f\t", o[j]);
 		fprintf(fp, "\n");
@@ -274,7 +234,7 @@ void PrintSurface(Model *md) { // Print Fermi surface data
 		exit(1);
 	}
 
-	fprintf(fp, "#k1\tk2\ta_up\ta_dn\tb_up\tb_dn\tc_up\tc_dn\tNaN\n");
+	fprintf(fp, "#p1\tp2\tk1_up\tk1_dn\tk2_up\tk2_dn\tk3_up\tk3_dn\tkq1_up\tkq1_dn\tkq2_up\tkq2_dn\tkq3_up\tkq3_dn\tNaN\n");
 	for(int i=0; i<ks*ks; i++) {
 		k1 = -M_PI + 2*M_PI*(i/ks)/(double)ks;
 		k2 = -M_PI + 2*M_PI*(i%ks)/(double)ks;
@@ -287,7 +247,7 @@ void PrintSurface(Model *md) { // Print Fermi surface data
 
 		CalcEigen(-1, md, k1, k2, w, vr);
 		for(int j=0; j<LN; j++) {
-			if(creal(w[j]) < md->mu && creal(w[j]) > md->mu - 0.5) o[2*j+1] = 1; 
+			if(creal(w[j]) < md->mu && creal(w[j]) > md->mu - 0.5) o[2*j+1] = 1;
 			else o[2*j+1] = 0;
 		}
 
@@ -303,7 +263,8 @@ void PrintSurface(Model *md) { // Print Fermi surface data
 void CalcNME(Model *md, double *n, double *m, double *e) { // Calculate n, m, energy
 	lapack_complex_double w[LN], vr[LDVR*LN];
 	double k1, k2;
-	double nup_sum[OBT] = {0, }, ndn_sum[OBT] = {0, }, eup_sum[OBT] = {0, }, edn_sum[OBT] = {0, };
+	double n1up_sum[OBT] = {0, }, n1dn_sum[OBT] = {0, }, e1up_sum[OBT] = {0, }, e1dn_sum[OBT] = {0, };
+	double n2up_sum[OBT] = {0, }, n2dn_sum[OBT] = {0, }, e2up_sum[OBT] = {0, }, e2dn_sum[OBT] = {0, };
 
 	for(int i=0; i<ks*ks; i++) {
 		k1 = -M_PI + 2*M_PI*(i/ks)/(double)ks;
@@ -312,25 +273,39 @@ void CalcNME(Model *md, double *n, double *m, double *e) { // Calculate n, m, en
 		CalcEigen( 1, md, k1, k2, w, vr);
 		for(int j=0; j<LDVR*LN; j++) {
 			if(creal(w[j/LN]) < md->mu) {
-				nup_sum[j%OBT] += (pow(creal(vr[j]), 2) + pow(cimag(vr[j]), 2));
-				eup_sum[j%OBT] += (pow(creal(vr[j]), 2) + pow(cimag(vr[j]), 2)) * creal(w[j/LN]);
+				if(j%LN < OBT) {
+					n1up_sum[j%OBT] += (pow(creal(vr[j]), 2) + pow(cimag(vr[j]), 2));
+					e1up_sum[j%OBT] += (pow(creal(vr[j]), 2) + pow(cimag(vr[j]), 2)) * creal(w[j/LN]);
+				}
+				else {
+					n2up_sum[j%OBT] += (pow(creal(vr[j]), 2) + pow(cimag(vr[j]), 2));
+					e2up_sum[j%OBT] += (pow(creal(vr[j]), 2) + pow(cimag(vr[j]), 2)) * creal(w[j/LN]);
+				}
 			}
 		}
 
 		CalcEigen(-1, md, k1, k2, w, vr);
 		for(int j=0; j<LDVR*LN; j++) {
 			if(creal(w[j/LN]) < md->mu) {
-				ndn_sum[j%OBT] += (pow(creal(vr[j]), 2) + pow(cimag(vr[j]), 2));
-				edn_sum[j%OBT] += (pow(creal(vr[j]), 2) + pow(cimag(vr[j]), 2)) * creal(w[j/LN]);
+				if(j%LN < OBT) {
+					n1dn_sum[j%OBT] += (pow(creal(vr[j]), 2) + pow(cimag(vr[j]), 2));
+					e1dn_sum[j%OBT] += (pow(creal(vr[j]), 2) + pow(cimag(vr[j]), 2)) * creal(w[j/LN]);
+				}
+				else {
+					n2dn_sum[j%OBT] += (pow(creal(vr[j]), 2) + pow(cimag(vr[j]), 2));
+					e2dn_sum[j%OBT] += (pow(creal(vr[j]), 2) + pow(cimag(vr[j]), 2)) * creal(w[j/LN]);
+				}
 			}
 		}
 	}
 
 	for(int i=0; i<OBT; i++) {
-		n[i] = (nup_sum[i] + ndn_sum[i])/(ks*ks);
-		m[i] = (nup_sum[i] - ndn_sum[i])/(ks*ks*2);
-		e[i] = (eup_sum[i] + edn_sum[i])/(ks*ks);
+		n[i] = (n1up_sum[i] + n1dn_sum[i] + n2up_sum[i] + n2dn_sum[i])/(ks*ks*2);
+		m[i] = (n1up_sum[i] - n1dn_sum[i])/(ks*ks*4);
+		e[i] = (e1up_sum[i] + e1dn_sum[i] + e2up_sum[i] + e2dn_sum[i])/(ks*ks*2);
+		printf("%f\t%f\t%f\t%f\n", n1up_sum[i], n1dn_sum[i], n2up_sum[i], n2dn_sum[i]);
 	}
+	printf("\n");
 }
 
 void FindM(Model *md) { // Find m converged
@@ -340,26 +315,22 @@ void FindM(Model *md) { // Find m converged
 	double n[OBT], m[OBT], e[OBT], itv;
 	double m_cvg[3] = {-100, -100, -100};
 
+	for(int i=0; i<OBT; i++) md->m[i] += 0.01*U;
+
 	sprintf(buf, "%s/%s.txt", input, runtime);
+	printf("#%s\n", buf);
 	if((fp = fopen(buf, "w")) == NULL) {
 		printf("fopen ERROR\n");
 		exit(1);
-	}
-
-	printf("# n = %.1f U  = %.1f J = %.3f k = %.1f\n", md->n0, md->U, md->J, (double)ks);
-	fprintf(fp, "# n = %.1f U  = %.1f J = %.3f k = %.1f\n", md->n0, md->U, md->J, (double)ks);
-	for(int i=0; i<OBT; i++) { 
-		md->n[i] = md->n0/3;
-		md->m[i] = md->n0/12;
 	}
 
 	printf("#%7s%16s%16s%16s%16s\n", "itr", "mu", "ntot", "mtot", "etot");
 	fprintf(fp, "#%7s%16s%16s%16s%16s\n", "itr", "mu", "ntot", "mtot", "etot");
 	for(itr=1; itr<100; itr++) {
 		itv = 1;
-		md->mu = 100;
+		md->mu = -20;
 
-		while(itv > 1e-8) {
+		while(itv > 1e-6) {
 			md->ntot = 0;
 			md->mtot = 0;
 			md->etot = 0;
@@ -370,10 +341,10 @@ void FindM(Model *md) { // Find m converged
 				md->mtot += m[j];
 				md->etot += e[j];
 			}
-			printf("%f\t%f\t%f\t%f\t%f\n", md->mu, md->ntot, m[0], m[1], m[2]);
-			if(fabs(md->ntot-md->n0) < 1e-4) break;
+			//printf("%f\t%f\t%f\t%f\t%f\n", md->mu, md->ntot, m[0], m[1], m[2]);
+			if(fabs(md->ntot-n0) < 1e-3) break;
 
-			if(md->ntot > md->n0-itv) {
+			if(md->ntot > n0-itv) {
 				md->mu -= itv;
 				itv *= 0.1;
 			}
@@ -411,45 +382,60 @@ void CalcC(Model *md) { // Calculate C
 		}
 	}
 
-	md->c = -N*md->U*(n2_sum-m2_sum/4) - 2*N*(md->U-2*md->J)*nn_sum + N*md->J*(nn_sum+mm_sum/4);
+	md->c = -N*U*(n2_sum-m2_sum/4) - 2*N*(U-2*J)*nn_sum + N*J*(nn_sum+mm_sum/4);
+}
+
+void PrintPhase(double U_start, double U_stop) { // Print magnetic phase data
+	Model md;
+
+	for(int i=0; i<OBT; i++) {
+		md.n[i] = n0/3;
+		md.m[i] = n0/12;
+	}
+
+	for(U=U_start; U<U_stop; U+=1) {
+		J = U * JoverU;
+
+		input = (char*)malloc(sizeof(char) * 1024);
+		sprintf(input, "/home/9yelin9/sro/afm/data/n%.1fU%.1fJ%.3fk%.1f", n0, U, J, (double)ks);
+		mkdir(input, 0777);
+
+		time_t t = time(NULL);
+		struct tm tm = *localtime(&t);
+		runtime = (char*)malloc(sizeof(char) * 1024);
+		sprintf(runtime, "%d%d%d%d", tm.tm_mon+1, tm.tm_mday, tm.tm_hour, tm.tm_min);
+
+		FindM(&md);
+		CalcC(&md);
+
+		output = (char*)malloc(sizeof(char) * 1024);
+		sprintf(output, "%s/n%fm%fe%fc%fmu%fitr%.1f_%s", input, md.ntot, md.mtot, md.etot, md.c, md.mu, md.itr, runtime);
+		mkdir(output, 0777);
+
+		PrintBand(&md);
+		PrintSurface(&md);
+
+		free(input);
+		free(output);
+		free(runtime);
+
+		printf("\n");
+	}
 }
 
 int main(int argc, char *argv[]) {
-	if(argc != 4) {
-		printf("Usage : %s <n_value> <U_value> <J/U_value>\n", argv[0]);
+	if(argc != 5) {
+		printf("Usage : %s <n value> <J/U value> <U_start value> <U_stop value>\n", argv[0]);
 		exit(1);
 	}
 
-	Model md;
-	md.n0 = atof(argv[1]);
-	md.U  = atof(argv[2]);
-	md.J  = atof(argv[2]) * atof(argv[3]);
-
-	input = (char*)malloc(sizeof(char) * 1024);
-	sprintf(input, "/home/9yelin9/mom/afm/data/n%.1fU%.1fJ%.3fk%.1f", md.n0, md.U, md.J, (double)ks);
-	mkdir(input, 0777);
-
-	time_t t = time(NULL);
-	struct tm tm = *localtime(&t);
-	runtime = (char*)malloc(sizeof(char) * 1024);
-	sprintf(runtime, "%d%d%d%d", tm.tm_mon+1, tm.tm_mday, tm.tm_hour, tm.tm_min);
+	n0     = atof(argv[1]);
+	JoverU = atof(argv[2]);
+	double U_start = atof(argv[3]);
+	double U_stop  = atof(argv[4]);
 
 	OptCalcEigen();
-	FindM(&md);
-	CalcC(&md);
-
-	output = (char*)malloc(sizeof(char) * 1024);
-	sprintf(output, "%s/n%fm%fe%fc%fmu%fitr%.1f_%s", input, md.ntot, md.mtot, md.etot, md.c, md.mu, md.itr, runtime);
-	mkdir(output, 0777);
-
-	PrintBand(&md);
-	PrintSurface(&md);
-
-	free(input);
-	free(output);
-	free(runtime);
-
-	printf("\n");
+	PrintPhase(U_start, U_stop);
 
 	return 0;
 }

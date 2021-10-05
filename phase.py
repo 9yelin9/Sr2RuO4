@@ -22,7 +22,7 @@ args = parser.parse_args()
 kind = 'fm' if args.kind == 'f' else 'afm'
 
 ### Choose file
-datadir = '/home/9yelin9/mom/{}/data'.format(kind)
+datadir = '/home/9yelin9/sro/{}/data'.format(kind)
 
 ulist = []
 nlist = []
@@ -56,5 +56,5 @@ plt.ylabel('-U/t1')
 plt.yticks(np.arange(0, 5.1, step=1.25))
 
 plt.legend()
-plt.savefig('/home/9yelin9/mom/diagram/mpd{}_{}.png'.format(kind, runtime))
+plt.savefig('/home/9yelin9/sro/diagram/mpd{}_{}.png'.format(kind, runtime))
 plt.show()

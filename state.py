@@ -20,7 +20,7 @@ args = parser.parse_args()
 kind = 'fm' if args.kind == 'f' else 'afm'
 
 ### Choose file
-datadir = '/home/9yelin9/mom/{}/data'.format(kind)
+datadir = '/home/9yelin9/sro/{}/data'.format(kind)
 
 cnt = 0
 inlist = os.listdir(datadir)
@@ -104,7 +104,7 @@ def band():
 	plt.xticks(np.arange(0, len(df)+1, step=float(pdic['k'])), labels=['$\Gamma$', 'M', 'X', '$\Gamma$'])
 
 	plt.legend()
-	plt.savefig('/home/9yelin9/mom/diagram/{}band_{}.png'.format(fname, runtime))
+	plt.savefig('/home/9yelin9/sro/diagram/{}band_{}.png'.format(fname, runtime))
 	plt.show()
 
 def dos():
@@ -140,7 +140,7 @@ def dos():
 	plt.ylabel('DOS')
 
 	plt.legend()
-	plt.savefig('/home/9yelin9/mom/diagram/{}dos_{}.png'.format(fname, runtime))
+	plt.savefig('/home/9yelin9/sro/diagram/{}dos_{}.png'.format(fname, runtime))
 	plt.show()
 
 def surface():
@@ -199,7 +199,7 @@ def surface():
 	plt.yticks([-np.pi, 0, np.pi], labels=['$-\pi$', '0', '$\pi$'])
 
 	plt.legend()
-	plt.savefig('/home/9yelin9/mom/diagram/{}surface_{}.png'.format(fname, runtime))
+	plt.savefig('/home/9yelin9/sro/diagram/{}surface_{}.png'.format(fname, runtime))
 	plt.show()
 
 ### Run
