@@ -23,7 +23,6 @@ const int ks = 128;
 const double t1 = -4.000;
 const double dt =  0.000;
 double n0;
-double JoverU;
 double U;
 double J;
 char *input;
@@ -31,7 +30,7 @@ char *output;
 char *runtime;
 
 struct Model {
-	double n[OBT];
+	double n[2][OBT];
 	double m[OBT];
 	double e[OBT];
 	double ntot;
@@ -39,12 +38,12 @@ struct Model {
 	double etot;
 	double c;
 	double mu;
-	double itr;
+	int itr;
 };	
 typedef struct Model Model;
 
 void BuildH(int uord, Model *md, double k1, double k2, lapack_complex_double *h) { // Build Hamiltonian matrix
-	double t2, t3, t4, ld0, *e;
+	double t2, t3, t4, ld0, e[OBT];
 	double n_sum, m_sum;
 	double a1, a2, a3;
 
@@ -53,17 +52,10 @@ void BuildH(int uord, Model *md, double k1, double k2, lapack_complex_double *h)
 	t4  = 0.125*t1;
 	ld0 = 0.200*t1;
 
-	e    = (double*)malloc(sizeof(double) * OBT);
 	e[0] = (2*t1*(cos(k1)+cos(k2)) + 4*t2*cos(k1)*cos(k2));
 	e[1] = (dt + 2*t3*cos(k2) + 2*t4*cos(k1));
 	e[2] = (dt + 2*t3*cos(k1) + 2*t4*cos(k2));
 	a3   = (4*ld0*sin(k1)*sin(k2));
-
-	// <Hamiltonian matrix>
-	//   	xy		yz		zx
-	// xy  	a1+a2	0		0
-	// yz	0	    a1+a2	a3		+ c
-	// zx	0	    a3		a1+a2
 
 	for(int i=0; i<OBT; i++) {
 		n_sum = 0;
@@ -71,19 +63,17 @@ void BuildH(int uord, Model *md, double k1, double k2, lapack_complex_double *h)
 
 		for(int j=0; j<OBT; j++) {
 			if(j != i) {
-				n_sum += md->n[j];
+				n_sum += md->n[uord][j];
 				m_sum += md->m[j];
 			}
 		}
 
-		a1 = e[i] + U*md->n[i] + (2*U-5*J)*n_sum;
-		a2 = -((double)uord/2) * (U*md->m[i] + J*m_sum); // uord : up = 1, dn = -1 
+		a1 = e[i] + U*md->n[uord][i] + (2*U-5*J)*n_sum;
+		a2 = -((double)uord-0.5) * (U*md->m[i] + J*m_sum)/2; // uord : up = 1, dn = 0 
 		h[i*4] = a1 + a2;
 	}
 
 	h[5] = h[7] = a3;
-
-	free(e);
 }
 
 void OptCalcEigen() { // Optimize CalcEigen
@@ -94,7 +84,7 @@ void OptCalcEigen() { // Optimize CalcEigen
 
 	LAPACK_zgeev(&jobvl, &jobvr, &ln, h, &lda, w, vl, &ldvl, vr, &ldvr, &work, &lwork, rwork, &info);
 	if(info != 0){
-		printf("OptCalEigen FAIL\n");
+		printf("OptCalcEigen FAIL\n");
 		exit(1);
 	}
 
@@ -112,7 +102,7 @@ void CalcEigen(int uord, Model *md, double k1, double k2, lapack_complex_double 
 	
 	LAPACK_zgeev(&jobvl, &jobvr, &ln, h, &lda, w0, vl, &ldvl, vr0, &ldvr, work, &lwork, rwork, &info);
 	if(info != 0){
-		printf("CalEigen FAIL\n");
+		printf("CalcEigen FAIL\n");
 		exit(1);
 	}
 
@@ -124,7 +114,7 @@ void CalcEigen(int uord, Model *md, double k1, double k2, lapack_complex_double 
 	for(int i=0; i<LN; i++) {
 		if((pow(creal(vr0[LN*i+1]), 2)+pow(cimag(vr0[LN*i+1]), 2)) + (pow(creal(vr0[LN*i+2]), 2)+pow(cimag(vr0[LN*i+2]), 2)) < 1e-6) {
 			w[2] = w0[i];
-			for(int j=0; j<LN; j++) vr[LN*2+j] = vr0[LN*i+j];
+			for(int j=0; j<LDVR; j++) vr[LN*2+j] = vr0[LN*i+j];
 		}
 		else {
 			idx[x] = i;
@@ -135,7 +125,7 @@ void CalcEigen(int uord, Model *md, double k1, double k2, lapack_complex_double 
 	if(creal(w0[idx[0]]) < creal(w0[idx[1]])) {
 		w[0] = w0[idx[0]];
 		w[1] = w0[idx[1]];
-		for(int i=0; i<LN; i++) {
+		for(int i=0; i<LDVR; i++) {
 			vr[LN*0+i] = vr0[LN*idx[0]+i];
 			vr[LN*1+i] = vr0[LN*idx[1]+i];
 		}
@@ -143,7 +133,7 @@ void CalcEigen(int uord, Model *md, double k1, double k2, lapack_complex_double 
 	else {
 		w[0] = w0[idx[1]];
 		w[1] = w0[idx[0]];
-		for(int i=0; i<LN; i++) {
+		for(int i=0; i<LDVR; i++) {
 			vr[LN*0+i] = vr0[LN*idx[1]+i];
 			vr[LN*1+i] = vr0[LN*idx[0]+i];
 		}
@@ -169,9 +159,9 @@ void PrintBand(Model *md) { // Print band structure data
 		k1 = M_PI*i/(double)ks;
 		k2 = 0;
 
-		CalcEigen( 1, md, k1, k2, w, vr);
+		CalcEigen(1, md, k1, k2, w, vr);
 		for(int j=0; j<LN; j++) o[2*j] = creal(w[j]);
-		CalcEigen(-1, md, k1, k2, w, vr);
+		CalcEigen(0, md, k1, k2, w, vr);
 		for(int j=0; j<LN; j++) o[2*j+1] = creal(w[j]);
 		
 		fprintf(fp, "%d\t", p);
@@ -184,9 +174,9 @@ void PrintBand(Model *md) { // Print band structure data
 		k1 = M_PI;
 		k2 = M_PI*i/(double)ks;
 
-		CalcEigen( 1, md, k1, k2, w, vr);
+		CalcEigen(1, md, k1, k2, w, vr);
 		for(int j=0; j<LN; j++) o[2*j] = creal(w[j]);
-		CalcEigen(-1, md, k1, k2, w, vr);
+		CalcEigen(0, md, k1, k2, w, vr);
 		for(int j=0; j<LN; j++) o[2*j+1] = creal(w[j]);
 		
 		fprintf(fp, "%d\t", p);
@@ -199,9 +189,9 @@ void PrintBand(Model *md) { // Print band structure data
 		k1 = M_PI + M_PI*i/(double)ks;
 		k2 = M_PI + M_PI*i/(double)ks;
 
-		CalcEigen( 1, md, k1, k2, w, vr);
+		CalcEigen(1, md, k1, k2, w, vr);
 		for(int j=0; j<LN; j++) o[2*j] = creal(w[j]);
-		CalcEigen(-1, md, k1, k2, w, vr);
+		CalcEigen(0, md, k1, k2, w, vr);
 		for(int j=0; j<LN; j++) o[2*j+1] = creal(w[j]);
 		
 		fprintf(fp, "%d\t", p);
@@ -232,13 +222,13 @@ void PrintSurface(Model *md) { // Print Fermi surface data
 		k1 = -M_PI + 2*M_PI*(i/ks)/(double)ks;
 		k2 = -M_PI + 2*M_PI*(i%ks)/(double)ks;
 
-		CalcEigen( 1, md, k1, k2, w, vr);
+		CalcEigen(1, md, k1, k2, w, vr);
 		for(int j=0; j<LN; j++) {
 			if(creal(w[j]) < md->mu && creal(w[j]) > md->mu - 0.5) o[2*j] = 1;
 			else o[2*j] = 0;
 		}
 
-		CalcEigen(-1, md, k1, k2, w, vr);
+		CalcEigen(0, md, k1, k2, w, vr);
 		for(int j=0; j<LN; j++) {
 			if(creal(w[j]) < md->mu && creal(w[j]) > md->mu - 0.5) o[2*j+1] = 1; 
 			else o[2*j+1] = 0;
@@ -253,7 +243,7 @@ void PrintSurface(Model *md) { // Print Fermi surface data
 	fclose(fp);
 }
 
-void CalcNME(Model *md, double *n, double *m, double *e) { // Calculate n, m, energy
+void CalcNME(Model *md, double n[2][OBT], double m[OBT], double e[OBT]) { // Calculate n, m, energy
 	lapack_complex_double w[LN], vr[LDVR*LN];
 	double k1, k2;
 	double nup_sum[OBT] = {0, }, ndn_sum[OBT] = {0, }, eup_sum[OBT] = {0, }, edn_sum[OBT] = {0, };
@@ -262,7 +252,7 @@ void CalcNME(Model *md, double *n, double *m, double *e) { // Calculate n, m, en
 		k1 = -M_PI + 2*M_PI*(i/ks)/(double)ks;
 		k2 = -M_PI + 2*M_PI*(i%ks)/(double)ks;
 
-		CalcEigen( 1, md, k1, k2, w, vr);
+		CalcEigen(1, md, k1, k2, w, vr);
 		for(int j=0; j<LDVR*LN; j++) {
 			if(creal(w[j/LN]) < md->mu) {
 				nup_sum[j%OBT] += (pow(creal(vr[j]), 2) + pow(cimag(vr[j]), 2));
@@ -270,7 +260,7 @@ void CalcNME(Model *md, double *n, double *m, double *e) { // Calculate n, m, en
 			}
 		}
 
-		CalcEigen(-1, md, k1, k2, w, vr);
+		CalcEigen(0, md, k1, k2, w, vr);
 		for(int j=0; j<LDVR*LN; j++) {
 			if(creal(w[j/LN]) < md->mu) {
 				ndn_sum[j%OBT] += (pow(creal(vr[j]), 2) + pow(cimag(vr[j]), 2));
@@ -280,8 +270,12 @@ void CalcNME(Model *md, double *n, double *m, double *e) { // Calculate n, m, en
 	}
 
 	for(int i=0; i<OBT; i++) {
-		n[i] = (nup_sum[i] + ndn_sum[i])/(ks*ks);
-		m[i] = (nup_sum[i] - ndn_sum[i])/(ks*ks*2);
+		n[1][i] = nup_sum[i]/(ks*ks);
+		n[0][i] = ndn_sum[i]/(ks*ks);
+	}
+
+	for(int i=0; i<OBT; i++) {
+		m[i] = (nup_sum[i] - ndn_sum[i])/(ks*ks);
 		e[i] = (eup_sum[i] + edn_sum[i])/(ks*ks);
 	}
 }
@@ -290,10 +284,8 @@ void FindM(Model *md) { // Find m converged
 	FILE *fp;
 	char buf[2048];
 	int itr;
-	double n[OBT], m[OBT], e[OBT], itv;
+	double n[2][OBT], m[OBT], e[OBT], itv;
 	double m_cvg[3] = {-100, -100, -100};
-
-	for(int i=0; i<OBT; i++) md->m[i] += 0.01*U; 
 
 	sprintf(buf, "%s/%s.txt", input, runtime);
 	printf("#%s\n", buf);
@@ -315,7 +307,7 @@ void FindM(Model *md) { // Find m converged
 
 			CalcNME(md, n, m, e);
 			for(int j=0; j<OBT; j++) {
-				md->ntot += n[j];
+				md->ntot += n[1][j] + n[0][j];
 				md->mtot += m[j];
 				md->etot += e[j];
 			}
@@ -331,13 +323,14 @@ void FindM(Model *md) { // Find m converged
 		fprintf(fp, "%8d%16.6f%16.6f%16.6f%16.6f\n", itr, md->mu, md->ntot, md->mtot, md->etot);
 
 		for(int j=0; j<OBT; j++) {
-			md->n[j] = n[j];
+			md->n[1][j] = n[1][j];
+			md->n[0][j] = n[0][j];
 			md->m[j] = m[j];
 			md->e[j] = e[j];
-			md->itr = (double)itr;
+			md->itr = itr;
 		}
 
-		m_cvg[itr%3] = md->mtot;
+		m_cvg[itr%3] = fabs(md->mtot);
 		if(fabs((m_cvg[0]+m_cvg[1]+m_cvg[2])/3 - m_cvg[itr%3]) < 1e-6) break;
 	}
 
@@ -348,12 +341,12 @@ void CalcC(Model *md) { // Calculate C
 	double n2_sum = 0, m2_sum = 0, nn_sum = 0, mm_sum = 0;
 
 	for(int i=0; i<OBT; i++) {
-		n2_sum += md->n[i]*md->n[i];
+		n2_sum += (md->n[1][i] + md->n[0][i])*(md->n[1][i] + md->n[0][i]);
 		m2_sum += md->m[i]*md->m[i];
 
 		for(int j=0; j<OBT; j++) {
 			if(j != i) {
-				nn_sum += md->n[j]*md->n[i];
+				nn_sum += (md->n[1][j] + md->n[0][j])*(md->n[1][i] + md->n[0][i]);
 				mm_sum += md->m[j]*md->m[i];
 			}
 		}
@@ -362,57 +355,49 @@ void CalcC(Model *md) { // Calculate C
 	md->c = -N*U*(n2_sum-m2_sum/4) - 2*N*(U-2*J)*nn_sum + N*J*(nn_sum+mm_sum/4);
 }
 
-void PrintPhase(double U_start, double U_stop) { // Print magnetic phase data
-	Model md;
-
-	for(int i=0; i<OBT; i++) { 
-		md.n[i] = n0/3;
-		md.m[i] = n0/12;
-	}
-
-	for(U=U_start; U<U_stop; U+=1) {
-		J = U * JoverU;
-
-		input = (char*)malloc(sizeof(char) * 1024);
-		sprintf(input, "/home/9yelin9/sro/fm/data/n%.1fU%.1fJ%.3fk%.1f", n0, U, J, (double)ks);
-		mkdir(input, 0777);
-
-		time_t t = time(NULL);
-		struct tm tm = *localtime(&t);
-		runtime = (char*)malloc(sizeof(char) * 1024);
-		sprintf(runtime, "%d%d%d%d", tm.tm_mon+1, tm.tm_mday, tm.tm_hour, tm.tm_min);
-
-		FindM(&md);
-		CalcC(&md);
-
-		output = (char*)malloc(sizeof(char) * 1024);
-		sprintf(output, "%s/n%fm%fe%fc%fmu%fitr%.1f_%s", input, md.ntot, md.mtot, md.etot, md.c, md.mu, md.itr, runtime);
-		mkdir(output, 0777);
-
-		PrintBand(&md);
-		PrintSurface(&md);
-
-		free(input);
-		free(output);
-		free(runtime);
-
-		printf("\n");
-	}
-}
-
 int main(int argc, char *argv[]) {
-	if(argc != 5) {
-		printf("Usage : %s <n value> <J/U value> <U_start value> <U_stop value>\n", argv[0]);
+	if(argc != 4) {
+		printf("Usage : %s <n value> <U value> <J/U value>\n", argv[0]);
 		exit(1);
 	}
 
-	n0     = atof(argv[1]);
-	JoverU = atof(argv[2]);
-	double U_start = atof(argv[3]);
-	double U_stop  = atof(argv[4]);
+	n0 = atof(argv[1]);
+	U  = atof(argv[2]);
+	J  = atof(argv[2]) * atof(argv[3]);
+
+	Model md;
+	for(int i=0; i<OBT; i++) { 
+		md.n[1][i] = n0/3-1.8 + 0.3*i;
+		md.n[0][i] = n0/3+1.2 - 0.2*i;
+		md.m[i] = n0/12 + 0.01*i;
+	}
 
 	OptCalcEigen();
-	PrintPhase(U_start, U_stop);  
+
+	input = (char*)malloc(sizeof(char) * 1024);
+	sprintf(input, "/home/9yelin9/sro/fm/data/n%.1f_U%.1f_J%.3f_k%d", n0, U, J, ks);
+	mkdir(input, 0777);
+
+	time_t t = time(NULL);
+	struct tm tm = *localtime(&t);
+	runtime = (char*)malloc(sizeof(char) * 1024);
+	sprintf(runtime, "%d%d%d%d", tm.tm_mon+1, tm.tm_mday, tm.tm_hour, tm.tm_min);
+
+	FindM(&md);
+	CalcC(&md);
+
+	output = (char*)malloc(sizeof(char) * 1024);
+	sprintf(output, "%s/nt%f_mt%f_et%f_c%f_mu%f_itr%d_v%s", input, md.ntot, md.mtot, md.etot, md.c, md.mu, md.itr, runtime);
+	mkdir(output, 0777);
+
+	PrintBand(&md);
+	PrintSurface(&md);
+
+	free(input);
+	free(output);
+	free(runtime);
+
+	printf("\n");
 
 	return 0;
 }

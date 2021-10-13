@@ -8,7 +8,7 @@ t0=$(date +%s.%N)
 t0_string=$(date)
 
 joveru=0.25
-for n in `seq 0 0.1 1.0`
+for n in `seq 0.1 0.1 0.5`
 do
     for u in `seq 5 20`
     do
