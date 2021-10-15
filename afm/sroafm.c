@@ -375,9 +375,7 @@ void FindM(Model *md) { // Find m converged
 	char buf[2048];
 	int itr, v1, v2;
 	double n[2][OBT], m[OBT], e[OBT], itv;
-	double m_cvg[4] = {-100, -100, -100, -100};
-
-	md->mu = -20;
+	double m_cvg[3] = {-100, -100, -100};
 
 	sprintf(buf, "%s/%s.txt", input, runtime);
 	printf("#%s\n", buf);
@@ -389,8 +387,8 @@ void FindM(Model *md) { // Find m converged
 	printf("#%7s%16s%16s%16s%16s\n", "itr", "mu", "ntot", "mtot", "etot");
 	fprintf(fp, "#%7s%16s%16s%16s%16s\n", "itr", "mu", "ntot", "mtot", "etot");
 	for(itr=1; itr<50; itr++) {
-		md->mu -= 1;
-		itv = fabs(md->mu);
+		md->mu = -20;
+		itv = 10;
 		v1 = 1;
 		v2 = 1;
 
@@ -432,8 +430,8 @@ void FindM(Model *md) { // Find m converged
 			md->itr = itr;
 		}
 
-		m_cvg[itr%4] = fabs(md->mtot);
-		if(fabs((m_cvg[0]+m_cvg[1]+m_cvg[2]+m_cvg[3])/4 - m_cvg[itr%4]) < 1e-3) break;
+		m_cvg[itr%3] = fabs(md->mtot);
+		if(fabs((m_cvg[0]+m_cvg[1]+m_cvg[2])/3 - m_cvg[itr%3]) < 1e-6) break;
 	}
 
 	fclose(fp);

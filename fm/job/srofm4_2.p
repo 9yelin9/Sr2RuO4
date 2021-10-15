@@ -4,6 +4,8 @@
 #$ -j yes
 #$ -cwd
 
+export OMP_NUM_THREADS=1
+
 t0=$(date +%s.%N)
 t0_string=$(date)
 

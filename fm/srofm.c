@@ -283,7 +283,7 @@ void CalcNME(Model *md, double n[2][OBT], double m[OBT], double e[OBT]) { // Cal
 void FindM(Model *md) { // Find m converged
 	FILE *fp;
 	char buf[2048];
-	int itr;
+	int itr, v1, v2;
 	double n[2][OBT], m[OBT], e[OBT], itv;
 	double m_cvg[3] = {-100, -100, -100};
 
@@ -297,8 +297,10 @@ void FindM(Model *md) { // Find m converged
 	printf("#%7s%16s%16s%16s%16s\n", "itr", "mu", "ntot", "mtot", "etot");
 	fprintf(fp, "#%7s%16s%16s%16s%16s\n", "itr", "mu", "ntot", "mtot", "etot");
 	for(itr=1; itr<100; itr++) {
-		itv = 1;
 		md->mu = -20;
+		itv = 10;
+		v1 = 1;
+		v2 = 1;
 
 		while(itv > 1e-6) {
 			md->ntot = 0;
@@ -313,11 +315,18 @@ void FindM(Model *md) { // Find m converged
 			}
 			if(fabs(md->ntot-n0) < 1e-3) break;
 
-			if(md->ntot > n0-itv) {
-				md->mu -= itv;
-				itv *= 0.1;
+			if(md->ntot < n0) {
+				if(v1 == 0) itv /= 2;
+				md->mu += itv;
+				v1 = 1;
+				v2 = 0;
 			}
-			md->mu += itv;
+			else {
+				if(v2 == 0) itv /= 2;
+				md->mu += itv;
+				v1 = 0;
+				v2 = 1;
+			}
 		}
 		printf("%8d%16.6f%16.6f%16.6f%16.6f\n", itr, md->mu, md->ntot, md->mtot, md->etot);
 		fprintf(fp, "%8d%16.6f%16.6f%16.6f%16.6f\n", itr, md->mu, md->ntot, md->mtot, md->etot);
